@@ -1,0 +1,52 @@
+name: Build and push to Amazon ECR
+
+on:
+  push:
+    branches:
+      - dev
+
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  REGISTRY: 632561965876.dkr.ecr.us-east-1.amazonaws.com/nexusrely
+  REPOSITORY: xmtp-node-go
+  AWS_REGION: us-east-1
+
+jobs:
+  build_and_push:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+
+      - id: meta
+        name: Docker Meta
+        uses: docker/metadata-action@818d4b7b91585d195f67373fd9cb0332e31a7175
+        env:
+          DOCKER_METADATA_PR_HEAD_SHA: 'true'
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.REPOSITORY }}
+          tags: |
+            type=ref,suffix=-{{sha}},event=branch
+            type=ref,suffix=-{{sha}},event=pr
+            type=ref,suffix=-{{sha}},event=tag
+            type=semver,event=tag,pattern={{raw}}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2 # More information on this action can be found below in the 'AWS Credentials' section
+        with:
+          role-to-assume: arn:aws:iam::632561965876:role/nexusrely-cicd-ecr-role
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: 'Docker build'
+        run: |-
+          docker build --build-arg="GO_VERSION=1.20" --tag ${{ steps.meta.outputs.tags }} -f ./dev/docker/Dockerfile .
+          docker push ${{ steps.meta.outputs.tags }}
