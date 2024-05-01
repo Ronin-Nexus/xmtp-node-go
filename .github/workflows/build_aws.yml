@@ -3,7 +3,7 @@ name: Build and push to Amazon ECR
 on:
   push:
     branches:
-      - dev
+      - wow3-dev
 
   workflow_dispatch:
 
