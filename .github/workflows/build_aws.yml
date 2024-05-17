@@ -1,9 +1,13 @@
-name: Build and push to Amazon ECR
+name: Build and push to Amazon ECR New
 
 on:
   push:
     branches:
-      - wow3-dev
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
 
   workflow_dispatch:
 
@@ -12,20 +16,21 @@ permissions:
   contents: read
 
 env:
-  REGISTRY: 632561965876.dkr.ecr.us-east-1.amazonaws.com/nexusrely
+  REGISTRY: 471112935179.dkr.ecr.us-east-1.amazonaws.com/wow3
   REPOSITORY: xmtp-node-go
   AWS_REGION: us-east-1
 
 jobs:
   build_and_push:
-    runs-on: self-hosted
+    runs-on: wow3-runner
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v2
-
+        uses: actions/checkout@v4
+      #      - name: Set up Docker Buildx
+      #        uses: docker/setup-buildx-action@v3
       - id: meta
         name: Docker Meta
-        uses: docker/metadata-action@818d4b7b91585d195f67373fd9cb0332e31a7175
+        uses: docker/metadata-action@v5
         env:
           DOCKER_METADATA_PR_HEAD_SHA: 'true'
         with:
@@ -37,16 +42,33 @@ jobs:
             type=semver,event=tag,pattern={{raw}}
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2 # More information on this action can be found below in the 'AWS Credentials' section
+        uses: aws-actions/configure-aws-credentials@v4 # More information on this action can be found below in the 'AWS Credentials' section
         with:
-          role-to-assume: arn:aws:iam::632561965876:role/nexusrely-cicd-ecr-role
+          role-to-assume: arn:aws:iam::471112935179:role/aws-cicd_runner
           aws-region: us-east-1
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: 'Docker build'
-        run: |-
-          docker build --build-arg="GO_VERSION=1.20" --tag ${{ steps.meta.outputs.tags }} -f ./dev/docker/Dockerfile .
-          docker push ${{ steps.meta.outputs.tags }}
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ vars.RUNNER_APP_ID }}
+          private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+          repositories: "go-common"
+          github-api-url: "https://api.github.com"
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          no-cache: true
+          build-args: |
+            CACHE_DATE=$(date)
+          secrets: |
+            GITHUB_AUTH_TOKEN=${{ steps.app-token.outputs.token }}
