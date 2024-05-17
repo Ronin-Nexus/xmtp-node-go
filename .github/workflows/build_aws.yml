@@ -50,14 +50,6 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - uses: actions/create-github-app-token@v1
-        id: app-token
-        with:
-          app-id: ${{ vars.RUNNER_APP_ID }}
-          private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
-          repositories: "go-common"
-          github-api-url: "https://api.github.com"
-
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -69,5 +61,3 @@ jobs:
           no-cache: true
           build-args: |
             CACHE_DATE=$(date)
-          secrets: |
-            GITHUB_AUTH_TOKEN=${{ steps.app-token.outputs.token }}
