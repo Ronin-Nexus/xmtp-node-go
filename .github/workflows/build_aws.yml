@@ -61,3 +61,4 @@ jobs:
           no-cache: true
           build-args: |
             CACHE_DATE=$(date)
+            GO_VERSION=1.20
